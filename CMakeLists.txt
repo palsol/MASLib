@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.6)
+project(MASLib)
+
+set(CMAKE_CXX_STANDARD 11)
+include_directories(contrib)
+find_package(PythonLibs REQUIRED)
+include_directories(/usr/include/python3.5)
+include_directories(/usr/include/numpy/)
+link_directories(/usr/lib/python3.5)
+link_directories(/usr/include/numpy/)
+set(SOURCE_FILES main.cpp main.cpp include/masCone.h cpp/masCone.cpp)
+add_executable(MASLib ${SOURCE_FILES})
