@@ -80,7 +80,7 @@ double masCone::getProximity(vector<double> signal) {
         masCone constCone(constSignal);
         vector<double> signalConstApproximation = constCone.approximation(signal);
 
-        result = distance(signal, signalApproximation);
+        result = distance(signal, signalApproximation)/distance(signalConstApproximation, signalApproximation);
     }
     return result;
 }
