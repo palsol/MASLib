@@ -1,24 +1,84 @@
-from numpy.lib.stride_tricks import as_strided
-import matplotlib.mlab as mlab
-from scipy import signal
-import time
-import numpy as np
-import matplotlib.pyplot as plt
 import mas
 import os.path
+import time
 
+import matplotlib.mlab as mlab
+import matplotlib.pyplot as plt
+import numpy as np
 import scipy.io.wavfile as wav
-from numpy.lib import stride_tricks
+from numpy.lib.stride_tricks import as_strided
+from scipy.signal import argrelextrema
+import soundfile as sf
 
 
 # diplom
 
-def wav_to_spectrogram(wav_file, time_start, time_end, nfft=2048):
-    rate, data = wav.read(wav_file)
+def smooth(x, window_len=16, window='hanning'):
+    """smooth the data using a window with requested size.
+
+    This method is based on the convolution of a scaled window with the signal.
+    The signal is prepared by introducing reflected copies of the signal
+    (with the window size) in both ends so that transient parts are minimized
+    in the begining and end part of the output signal.
+
+    input:
+        x: the input signal
+        window_len: the dimension of the smoothing window; should be an odd integer
+        window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
+            flat window will produce a moving average smoothing.
+
+    output:
+        the smoothed signal
+
+    example:
+
+    t=linspace(-2,2,0.1)
+    x=sin(t)+randn(len(t))*0.1
+    y=smooth(x)
+
+    see also:
+
+    numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
+    scipy.signal.lfilter
+
+    TODO: the window parameter could be the window itself if an array instead of a string
+    NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len/2)] instead of just y.
+    """
+
+    if x.ndim != 1:
+        raise ValueError("smooth only accepts 1 dimension arrays.")
+
+    if x.size < window_len:
+        raise ValueError("Input vector needs to be bigger than window size.")
+
+    if window_len < 3:
+        return x
+
+    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
+        raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
+
+    s = np.r_[x[window_len - 1:0:-1], x, x[-1:-window_len:-1]]
+    # print(len(s))
+    if window == 'flat':  # moving average
+        w = np.ones(window_len, 'd')
+    else:
+        w = eval('np.' + window + '(window_len)')
+
+    y = np.convolve(w / w.sum(), s, mode='valid')
+    return y
+
+
+def wav_to_spectrogram(wav_file, time_start, time_end, nfft=2048, noverlap=None, pad_to=None):
+    if noverlap is None:
+        noverlap = nfft / 2  # same default noverlap
+
+    # rate, data = wav.read(wav_file)
+    data, rate = sf.read(wav_file, always_2d=True)
+
     data = data[rate * time_start:rate * time_end, 0]
     spec, freqs, t = mlab.specgram(x=data, NFFT=nfft, Fs=rate,
                                    detrend=None, window=None,
-                                   noverlap=128, pad_to=None,
+                                   noverlap=noverlap, pad_to=pad_to,
                                    sides=None,
                                    scale_by_freq=None,
                                    mode=None)
@@ -111,6 +171,38 @@ def compare_chunks(data, axis):
     return result
 
 
+def compress_spectrum(spectrogram):
+    spectrogram_smooth = np.apply_along_axis(smooth, 0, spectrogram)
+    spectrogram_compresed = np.zeros(spectrogram.shape[0] / 16)
+    spectrogram_compresed = spectrogram_smooth[0:spectrogram.shape[0]:16]
+    return spectrogram_compresed
+
+def classify_beat_spectrum_extrema(beat_spectrum):
+    extrema = argrelextrema(beat_spectrum, np.less, mode='wrap')
+    beat_spectrum_max = beat_spectrum[extrema]
+    ex = [list(extrema)]
+
+    while len(ex[-1][0]) != 0:
+         extrema = argrelextrema(beat_spectrum_max, np.less, mode='wrap')
+         beat_spectrum_max = beat_spectrum_max[extrema]
+         ex.append(list(extrema))
+
+         # print(len(ex[-1][0]))
+
+    ex.pop()
+    # print(ex)
+    # print(len(ex))
+
+    beat_spectrum_max = np.zeros(beat_spectrum.shape[0])
+    for i in range(len(ex)):
+        pos = ex[0][0]
+        for j in range(i):
+            pos = pos[ex[j + 1][0]]
+        # print(pos)
+        beat_spectrum_max[pos] += 1
+
+    return beat_spectrum_max
+
 def plotting_comparison_between_x_chunks(chunk_size, audio_path, time_start, time_end):
     distance = mas.distance(np.ones(chunk_size), (-1 * np.ones(chunk_size)))
     print("distance =", distance)
@@ -186,27 +278,53 @@ def plotting_comparison_between_x_chunks(chunk_size, audio_path, time_start, tim
     # print(test_chunks[:,0])
 
 
-def plotting_beat_spectrum(audio_path, audio_name, time_start, time_end, nfft):
-    spectrogram = wav_to_spectrogram(audio_path, time_start, time_end, nfft)
+def plotting_beat_spectrum(audio_path, audio_name, time_start, time_end, nfft, noverlap=None, pad_to=None):
+    if pad_to is None:
+        pad_to = nfft
+
+    then = time.time()
+
+    spectrogram = wav_to_spectrogram(audio_path, time_start, time_end, nfft, noverlap, pad_to)
     spectrogram = spectrogram[::-1]
+    spectrogram = compress_spectrum(spectrogram)
     log_spectrogram = -1 * np.log(spectrogram)
     log_spectrogram /= np.nanmax(log_spectrogram)
 
-    then = time.time()
+
     compare_result = compare_chunk(log_spectrogram, 'y')
     max_res = np.nanmax(compare_result)
     print(compare_result.shape)
     print(max_res)
-    compare_result /= max_res
+    nfft = log_spectrogram.shape[0]
+
     beat_spectrum = np.zeros(compare_result.shape[0])
 
-    for i in range(compare_result.shape[0]):
-        for j in range(compare_result.shape[0] - i):
-            beat_spectrum[i] += np.exp(-1 * np.log(compare_result[i, i + j] + 0.001))
+    half = int(compare_result.shape[0])
+    for k in range(half):
+        for i in range(half - k):
+            # beat_spectrum[i] += np.exp(-1 * np.log(compare_result[i, i + j] + 0.0001))
+            beat_spectrum[k] += (compare_result[i, i + k])#*(compare_result.shape[0]/(compare_result.shape[0] - k))
 
+    beat_spectrum = smooth(beat_spectrum)[0:compare_result.shape[0]]
+    # beat_spectrum_max = np.zeros(compare_result.shape[0])
+    # beat_spectrum_max[0:] = nfft
+    # beat_spectrum_max[argrelextrema(beat_spectrum, np.less, mode='wrap')] = nfft * 0.95
+    beat_spectrum_max = nfft - classify_beat_spectrum_extrema(beat_spectrum) * nfft * 0.1
     beat_spectrum /= np.nanmax(beat_spectrum)
     beat_spectrum *= nfft
     beat_spectrum = nfft - beat_spectrum
+
+    similarity = np.zeros(compare_result.shape[0])
+    for k in range(compare_result.shape[0]):
+        for i in range(compare_result.shape[0]):
+            # beat_spectrum[i] += np.exp(-1 * np.log(compare_result[i, i + j] + 0.0001))
+            similarity[k] += (compare_result[i, k])
+
+    similarity /= np.nanmax(similarity)
+    similarity *= nfft / 2
+    similarity = nfft / 2 - similarity
+
+    compare_result /= max_res
 
     now = time.time()
     diff = int(now - then)
@@ -219,6 +337,8 @@ def plotting_beat_spectrum(audio_path, audio_name, time_start, time_end, nfft):
     plt.subplot(212)
     plt.imshow(log_spectrogram, vmin=0, vmax=1, cmap='jet', aspect='auto', zorder=0)
     plt.plot(beat_spectrum, linewidth=1, zorder=1, color='k')
+    plt.plot(similarity, linewidth=1, zorder=1, color='w')
+    plt.plot(beat_spectrum_max, linewidth=1, zorder=1, color='k')
     plt.axis(xmin=0, xmax=compare_result.shape[0])
     # plt.axis('off')
     fig.subplots_adjust(.1, .1, .9, .9, .0, .0)
@@ -242,9 +362,39 @@ def plotting_beat_spectrum(audio_path, audio_name, time_start, time_end, nfft):
     #             + 'pbs_(' + audio_name + ')_' + str(time_start) + ':' + str(time_end) + 'pec.png')
 
 
+def plotting_spectrum(audio_path, audio_name, time_start, time_end, nfft, noverlap, pad_to=None):
+    spectrogram = wav_to_spectrogram(audio_path, time_start, time_end, nfft, noverlap, pad_to)
+    spectrogram = spectrogram[::-1]
+    log_spectrogram = -1 * np.log(spectrogram)
+    log_spectrogram /= np.nanmax(log_spectrogram)
+
+    fig, axes = plt.subplots(nrows=1, sharex='all', sharey='all', figsize=(10, 20))
+    plt.subplot(211)
+    plt.imshow(log_spectrogram, vmin=0, vmax=1, cmap='jet', aspect='auto', zorder=0)
+    fig.subplots_adjust(.1, .1, .9, .9, .0, .0)
+
+    directory = '/home/palsol/CLionProjects/MASLib/data/res/spectrum'
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    fig.savefig('/home/palsol/CLionProjects/MASLib/data/res/spectrum/'
+                + 'spectrum_(' + audio_name + ')_'
+                + str(time_start) + ':' + str(time_end)
+                + '_' + str(nfft)
+                + '.png')
+
+    plt.show()
+
+
 if __name__ == '__main__':
-    plotting_beat_spectrum(audio_path="../data/d26.wav",
-                           audio_name="d26",
-                           time_start=1,
-                           time_end=3,
-                           nfft=1024)
+    # plotting_spectrum(audio_path="../data/sodar/2.waw",
+    #                        audio_name="d26",
+    #                        time_start=0,
+    #                        time_end=9,
+    #                        nfft=1024, noverlap=512, pad_to = 128)
+    start = 60
+    plotting_beat_spectrum(audio_path="../data/M O O N - Crystals.wav",
+                           audio_name="M O O N - Crystals",
+                           time_start=start + 0.2,
+                           time_end=start + 16,
+                           nfft=1024, noverlap=0)
