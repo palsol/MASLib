@@ -1,6 +1,6 @@
 import mas
 import os.path
-import time
+import time as timer
 
 import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
@@ -74,15 +74,25 @@ def wav_to_spectrogram(wav_file, time_start, time_end, nfft=2048, noverlap=None,
 
     # rate, data = wav.read(wav_file)
     data, rate = sf.read(wav_file, always_2d=True)
-
     data = data[rate * time_start:rate * time_end, 0]
+
+    # fs = 10e5
+    # N = 1e5
+    # amp = 2 * np.sqrt(2)
+    # noise_power = 0.001 * fs / 2
+    # time = np.arange(N)
+    # freq = np.linspace(1e3, 2e3, N)
+    # x = np.sin(2*np.pi*10000*time / fs)
+    # data = x
+    # rate = fs
+
     spec, freqs, t = mlab.specgram(x=data, NFFT=nfft, Fs=rate,
                                    detrend=None, window=None,
                                    noverlap=noverlap, pad_to=pad_to,
                                    sides=None,
                                    scale_by_freq=None,
                                    mode=None)
-    return spec / np.amax(spec)
+    return spec, freqs, t
 
 
 def split_to_slide_chunks(data, chunk_size):
@@ -110,37 +120,71 @@ def split_to_chunks(data, chunk_size):
     return chunks
 
 
-def compare_chunk(data, axis):
+def compare_chunk(data, axis, cmf=None):
     axis_values = ["x", "y", "0", "1"]
     if axis not in axis_values:
         raise ValueError("axis [%s] must be one of %s" %
                          (axis, axis_values))
 
-    if axis in ("x", "0"):
-        result = np.zeros((data.shape[0], data.shape[0]))
+    if cmf is None:
+        if axis in ("x", "0"):
+            result = np.zeros((data.shape[0], data.shape[0]))
+            print(data.shape)
+            for i in range(data.shape[0]):
+                for j in range(data.shape[0]):
+                    if i < j:
+                        result[i][j] = mas.proximity(data[i], data[j])
+                    else:
+                        result[i][j] = (mas.proximity(data[i], data[j]) + result[j][i]) / 2.0
+                        result[j][i] = result[i][j]
+                        result[j][i] = result[i][j]
 
-        # print(result.shape)
-        print(data.shape)
-        for i in range(data.shape[0]):
-            for j in range(data.shape[0]):
-                if i < j:
-                    result[i][j] = mas.proximity(data[i], data[j])
-                else:
-                    result[i][j] = (mas.proximity(data[i], data[j]) + result[j][i]) / 2.0
-                    result[j][i] = result[i][j]
+        elif axis in ("y", "1"):
+            result = np.zeros((data.shape[1], data.shape[1]))
+            print(data.shape)
+            for i in range(data.shape[1]):
+                for j in range(data.shape[1]):
+                    if i < j:
+                        result[i][j] = mas.proximity(data[:, i], data[:, j])
+                    else:
+                        result[i][j] = (mas.proximity(data[:, i], data[:, j]) + result[j][i]) / 2.0
+                        result[j][i] = result[i][j]
+                        result[j][i] = result[i][j]
+    else:
+        if axis in ("x", "0"):
+            result = np.zeros((data.shape[0], data.shape[0]))
+            print(data.shape)
+            for i in range(data.shape[0]):
+                for j in range(data.shape[0]):
+                    if i < j:
+                        result[i][j] = mas.proximity(data[i], data[j])
+                    else:
+                        temp = mas.proximity(data[i], data[j])
+                        mc_ratio = temp / result[j][i]
+                        if 1 - cmf < mc_ratio and mc_ratio < 1 + cmf:
+                            result[i][j] = (temp + result[j][i]) / 2.0
+                        else:
+                            result[i][j] = (temp + result[j][i]) * 20
 
-    elif axis in ("y", "1"):
-        result = np.zeros((data.shape[1], data.shape[1]))
+                        result[j][i] = result[i][j]
 
-        # print(result.shape)
-        print(data.shape)
-        for i in range(data.shape[1]):
-            for j in range(data.shape[1]):
-                if i < j:
-                    result[i][j] = mas.proximity(data[:, i], data[:, j])
-                else:
-                    result[i][j] = (mas.proximity(data[:, i], data[:, j]) + result[j][i]) / 2.0
-                    result[j][i] = result[i][j]
+        elif axis in ("y", "1"):
+            result = np.zeros((data.shape[1], data.shape[1]))
+            print(data.shape)
+            for i in range(data.shape[1]):
+                for j in range(data.shape[1]):
+                    if i < j:
+                        result[i][j] = mas.proximity(data[:, i], data[:, j])
+                    else:
+                        temp = mas.proximity(data[:, i], data[:, j])
+                        mc_ratio = temp / result[j][i]
+                        if 1 - cmf < mc_ratio and mc_ratio < 1 + cmf:
+                            result[i][j] = (temp + result[j][i]) / 2.0
+                        else:
+                            result[i][j] = (temp + result[j][i]) * 20
+
+                        result[j][i] = result[i][j]
+
     return result
 
 
@@ -177,31 +221,39 @@ def compress_spectrum(spectrogram):
     spectrogram_compresed = spectrogram_smooth[0:spectrogram.shape[0]:16]
     return spectrogram_compresed
 
+
 def classify_beat_spectrum_extrema(beat_spectrum):
     extrema = argrelextrema(beat_spectrum, np.less, mode='wrap')
     beat_spectrum_max = beat_spectrum[extrema]
     ex = [list(extrema)]
 
     while len(ex[-1][0]) != 0:
-         extrema = argrelextrema(beat_spectrum_max, np.less, mode='wrap')
-         beat_spectrum_max = beat_spectrum_max[extrema]
-         ex.append(list(extrema))
+        extrema = argrelextrema(beat_spectrum_max, np.less, mode='wrap')
+        beat_spectrum_max = beat_spectrum_max[extrema]
+        ex.append(list(extrema))
 
-         # print(len(ex[-1][0]))
+        # print(len(ex[-1][0]))
 
     ex.pop()
     # print(ex)
     # print(len(ex))
 
     beat_spectrum_max = np.zeros(beat_spectrum.shape[0])
+    rank_pos = []
     for i in range(len(ex)):
         pos = ex[0][0]
         for j in range(i):
             pos = pos[ex[j + 1][0]]
         # print(pos)
+        rank_pos.append(pos)
         beat_spectrum_max[pos] += 1
 
-    return beat_spectrum_max
+    return beat_spectrum_max, rank_pos
+
+
+def beat_spectrum_peak_analysis(peaks):
+    return 0
+
 
 def plotting_comparison_between_x_chunks(chunk_size, audio_path, time_start, time_end):
     distance = mas.distance(np.ones(chunk_size), (-1 * np.ones(chunk_size)))
@@ -282,14 +334,13 @@ def plotting_beat_spectrum(audio_path, audio_name, time_start, time_end, nfft, n
     if pad_to is None:
         pad_to = nfft
 
-    then = time.time()
+    then = timer.time()
 
-    spectrogram = wav_to_spectrogram(audio_path, time_start, time_end, nfft, noverlap, pad_to)
+    spectrogram, freq, time = wav_to_spectrogram(audio_path, time_start, time_end, nfft, noverlap, pad_to)
     spectrogram = spectrogram[::-1]
     spectrogram = compress_spectrum(spectrogram)
     log_spectrogram = -1 * np.log(spectrogram)
     log_spectrogram /= np.nanmax(log_spectrogram)
-
 
     compare_result = compare_chunk(log_spectrogram, 'y')
     max_res = np.nanmax(compare_result)
@@ -299,20 +350,36 @@ def plotting_beat_spectrum(audio_path, audio_name, time_start, time_end, nfft, n
 
     beat_spectrum = np.zeros(compare_result.shape[0])
 
-    half = int(compare_result.shape[0])
-    for k in range(half):
-        for i in range(half - k):
+    for k in range(compare_result.shape[0]):
+        for i in range(compare_result.shape[0] - k):
             # beat_spectrum[i] += np.exp(-1 * np.log(compare_result[i, i + j] + 0.0001))
-            beat_spectrum[k] += (compare_result[i, i + k])#*(compare_result.shape[0]/(compare_result.shape[0] - k))
+            beat_spectrum[k] += (compare_result[i, i + k])  # *(compare_result.shape[0]/(compare_result.shape[0] - k))
 
-    beat_spectrum = smooth(beat_spectrum)[0:compare_result.shape[0]]
-    # beat_spectrum_max = np.zeros(compare_result.shape[0])
-    # beat_spectrum_max[0:] = nfft
-    # beat_spectrum_max[argrelextrema(beat_spectrum, np.less, mode='wrap')] = nfft * 0.95
-    beat_spectrum_max = nfft - classify_beat_spectrum_extrema(beat_spectrum) * nfft * 0.1
-    beat_spectrum /= np.nanmax(beat_spectrum)
-    beat_spectrum *= nfft
-    beat_spectrum = nfft - beat_spectrum
+    beat_spectrum = smooth(beat_spectrum, window_len=4)[0:compare_result.shape[0]]
+    beat_spectrum_max, rank_pos = classify_beat_spectrum_extrema(beat_spectrum)
+    print(rank_pos)
+    print(len(rank_pos))
+
+    def analys_beat_spectrum_max(rank_pos, compare_result):
+        max_sb_rank = len(rank_pos)
+        if max_sb_rank > 1:
+            mean_rank_len = len(rank_pos[max_sb_rank - 2])
+            peak_proximity = np.zeros([mean_rank_len, mean_rank_len])
+            for i in range(mean_rank_len):
+                for j in range(mean_rank_len):
+                    if i == j:
+                        peak_proximity[i][j] = 1
+                    else:
+                        peak_proximity[i][j] = compare_result[
+                            rank_pos[max_sb_rank - 2][i], rank_pos[max_sb_rank - 2][j]]
+
+            print(peak_proximity)
+            i = (peak_proximity).argsort(axis=None, kind='mergesort')
+            j = np.unravel_index(i, peak_proximity.shape)
+            res = np.vstack(j).T
+            print(res)
+
+    analys_beat_spectrum_max(rank_pos, compare_result)
 
     similarity = np.zeros(compare_result.shape[0])
     for k in range(compare_result.shape[0]):
@@ -320,22 +387,28 @@ def plotting_beat_spectrum(audio_path, audio_name, time_start, time_end, nfft, n
             # beat_spectrum[i] += np.exp(-1 * np.log(compare_result[i, i + j] + 0.0001))
             similarity[k] += (compare_result[i, k])
 
-    similarity /= np.nanmax(similarity)
-    similarity *= nfft / 2
-    similarity = nfft / 2 - similarity
-
-    compare_result /= max_res
-
-    now = time.time()
+    now = timer.time()
     diff = int(now - then)
     minutes, seconds = diff // 60, diff % 60
     print('comparison time: ' + str(minutes) + ':' + str(seconds).zfill(2))
 
+    # Normalize for plot
+    freq_scale = freq.max() - freq.min()
+    compare_result /= max_res
+    beat_spectrum /= np.nanmax(beat_spectrum)
+    beat_spectrum *= freq_scale
+    beat_spectrum = beat_spectrum + freq.min()
+    beat_spectrum_max = beat_spectrum_max * freq_scale * 0.1 + freq.min()
+    similarity /= np.nanmax(similarity)
+    similarity *= freq_scale / 2
+    similarity = similarity + freq.min()
+
     fig, axes = plt.subplots(nrows=2, sharex='all', sharey='all', figsize=(10, 20))
     plt.subplot(211)
-    plt.imshow(compare_result, vmin=0, vmax=1, cmap='jet', aspect='1')
+    plt.imshow(compare_result, cmap='jet', aspect='1')
     plt.subplot(212)
-    plt.imshow(log_spectrogram, vmin=0, vmax=1, cmap='jet', aspect='auto', zorder=0)
+    plt.imshow(log_spectrogram, vmin=0, vmax=1, cmap='jet', aspect='auto', zorder=0,
+               extent=(0, compare_result.shape[0], freq.min(), freq.max()))
     plt.plot(beat_spectrum, linewidth=1, zorder=1, color='k')
     plt.plot(similarity, linewidth=1, zorder=1, color='w')
     plt.plot(beat_spectrum_max, linewidth=1, zorder=1, color='k')
@@ -354,7 +427,7 @@ def plotting_beat_spectrum(audio_path, audio_name, time_start, time_end, nfft, n
                 + '.png')
 
     plt.show()
-
+    plt.close(fig)
     # fig = plt.figure(1, figsize=(5, 10))
 
     # plt.imshow(log_spectrogram, vmin=0, vmax=1, cmap='jet', aspect='auto')
@@ -362,15 +435,105 @@ def plotting_beat_spectrum(audio_path, audio_name, time_start, time_end, nfft, n
     #             + 'pbs_(' + audio_name + ')_' + str(time_start) + ':' + str(time_end) + 'pec.png')
 
 
-def plotting_spectrum(audio_path, audio_name, time_start, time_end, nfft, noverlap, pad_to=None):
-    spectrogram = wav_to_spectrogram(audio_path, time_start, time_end, nfft, noverlap, pad_to)
+def analyze_clip(audio_path, audio_name, time_start, time_end, nfft, noverlap=None, pad_to=None):
+    if pad_to is None:
+        pad_to = nfft
+
+    then = timer.time()
+
+    spectrogram, freq, time = wav_to_spectrogram(audio_path, time_start, time_end, nfft, noverlap, pad_to)
     spectrogram = spectrogram[::-1]
+    spectrogram = compress_spectrum(spectrogram)
     log_spectrogram = -1 * np.log(spectrogram)
     log_spectrogram /= np.nanmax(log_spectrogram)
 
-    fig, axes = plt.subplots(nrows=1, sharex='all', sharey='all', figsize=(10, 20))
-    plt.subplot(211)
-    plt.imshow(log_spectrogram, vmin=0, vmax=1, cmap='jet', aspect='auto', zorder=0)
+    compare_result = compare_chunk(log_spectrogram, 'y')
+    max_res = np.nanmax(compare_result)
+    nfft = log_spectrogram.shape[0]
+
+    beat_spectrum = np.zeros(compare_result.shape[0])
+
+    for k in range(compare_result.shape[0]):
+        for i in range(compare_result.shape[0] - k):
+            # beat_spectrum[i] += np.exp(-1 * np.log(compare_result[i, i + j] + 0.0001))
+            beat_spectrum[k] += (compare_result[i, i + k])  # *(compare_result.shape[0]/(compare_result.shape[0] - k))
+
+    beat_spectrum = smooth(beat_spectrum, window_len=4)[0:compare_result.shape[0]]
+    beat_spectrum_max, rank_pos = classify_beat_spectrum_extrema(beat_spectrum)
+
+    def analys_beat_spectrum_max(rank_pos, compare_result):
+        max_sb_rank = len(rank_pos)
+        if max_sb_rank > 1:
+            mean_rank_len = len(rank_pos[max_sb_rank - 2])
+            peak_proximity = np.zeros([mean_rank_len, mean_rank_len])
+            for i in range(mean_rank_len):
+                for j in range(mean_rank_len):
+                    if i == j:
+                        peak_proximity[i][j] = 1
+                    else:
+                        peak_proximity[i][j] = compare_result[
+                            rank_pos[max_sb_rank - 2][i], rank_pos[max_sb_rank - 2][j]]
+
+            # print(peak_proximity)
+            i = (peak_proximity).argsort(axis=None, kind='mergesort')
+            j = np.unravel_index(i, peak_proximity.shape)
+            res = np.vstack(j).T
+            # print(res)
+
+    analys_beat_spectrum_max(rank_pos, compare_result)
+
+    similarity = np.zeros(compare_result.shape[0])
+    for k in range(compare_result.shape[0]):
+        for i in range(compare_result.shape[0]):
+            # beat_spectrum[i] += np.exp(-1 * np.log(compare_result[i, i + j] + 0.0001))
+            similarity[k] += (compare_result[i, k])
+
+    now = timer.time()
+    diff = int(now - then)
+    minutes, seconds = diff // 60, diff % 60
+    print('comparison time: ' + str(minutes) + ':' + str(seconds).zfill(2))
+
+    # Normalize for plot
+    compare_result /= max_res
+    beat_spectrum /= np.nanmax(beat_spectrum)
+    beat_spectrum *= nfft
+    beat_spectrum = nfft - beat_spectrum
+    beat_spectrum_max = nfft - beat_spectrum_max * nfft * 0.1
+    similarity /= np.nanmax(similarity)
+    similarity *= nfft / 2
+    similarity = nfft / 2 - similarity
+
+    fig, axes = plt.subplots(nrows=1, sharex='all', sharey='all', figsize=(20, 10))
+    plt.imshow(log_spectrogram, vmin=0, vmax=1, cmap='jet', aspect='auto', zorder=0,
+               extent=(time.min(), time.max(), freq.min(), freq.max()))
+    plt.plot(beat_spectrum, linewidth=1, zorder=1, color='k')
+    plt.plot(similarity, linewidth=1, zorder=1, color='w')
+    plt.plot(beat_spectrum_max, linewidth=1, zorder=1, color='k')
+    plt.axis(xmin=0, xmax=compare_result.shape[0])
+    # plt.axis('off')
+    fig.subplots_adjust(.1, .1, .9, .9, .0, .0)
+
+    directory = '/home/palsol/CLionProjects/MASLib/data/res/PBS/' + 'pbs_(' + audio_name + ')/'
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    fig.savefig('/home/palsol/CLionProjects/MASLib/data/res/PBS/'
+                + 'pbs_(' + audio_name + ')/'
+                + str(int(time_start * 10)) + '_' + str(int(time_end * 10))
+                + '.png')
+    plt.close(fig)
+
+
+def plotting_spectrum(audio_path, audio_name, time_start, time_end, nfft, noverlap, pad_to=None):
+    spectrogram, freq, time = wav_to_spectrogram(audio_path, time_start, time_end, nfft, noverlap, pad_to)
+    spectrogram = spectrogram[::-1]
+    log_spectrogram = np.log(spectrogram)
+    # log_spectrogram /= np.nanmax(log_spectrogram)
+
+    fig, axes = plt.subplots(nrows=1, sharex='all', sharey='all', figsize=(20, 10))
+    plt.imshow(log_spectrogram, cmap='jet', aspect='auto', zorder=0,
+               extent=(time.min(), time.max(), freq.min(), freq.max()))
+
     fig.subplots_adjust(.1, .1, .9, .9, .0, .0)
 
     directory = '/home/palsol/CLionProjects/MASLib/data/res/spectrum'
@@ -379,22 +542,30 @@ def plotting_spectrum(audio_path, audio_name, time_start, time_end, nfft, noverl
 
     fig.savefig('/home/palsol/CLionProjects/MASLib/data/res/spectrum/'
                 + 'spectrum_(' + audio_name + ')_'
-                + str(time_start) + ':' + str(time_end)
+                + str(time_start * 10) + ':' + str(time_end * 10)
                 + '_' + str(nfft)
                 + '.png')
 
     plt.show()
-
+    plt.close(fig)
 
 if __name__ == '__main__':
     # plotting_spectrum(audio_path="../data/sodar/2.waw",
-    #                        audio_name="d26",
-    #                        time_start=0,
-    #                        time_end=9,
-    #                        nfft=1024, noverlap=512, pad_to = 128)
-    start = 60
-    plotting_beat_spectrum(audio_path="../data/M O O N - Crystals.wav",
-                           audio_name="M O O N - Crystals",
+    #                   audio_name="sodar2",
+    #                   time_start=0,
+    #                   time_end=9,
+    #                   nfft=2048, noverlap=1024)
+    start = 25
+    plotting_beat_spectrum(audio_path="../data/Wesley Don't Surf.wav",
+                           audio_name="Wesley Don't Surf",
                            time_start=start + 0.2,
-                           time_end=start + 16,
+                           time_end=start + 4,
                            nfft=1024, noverlap=0)
+
+    # for i in range(40):
+    #     start = 0.2
+    #     analyze_clip(audio_path="../data/Wesley Don't Surf.wav",
+    #                  audio_name="Wesley Don't Surf",
+    #                  time_start=start + i * 2.5,
+    #                  time_end=start + (i + 1) * 2.5 + 2.5,
+    #                  nfft=1024, noverlap=0)
