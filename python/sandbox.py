@@ -717,20 +717,22 @@ if __name__ == '__main__':
 
     # data = pd.read_csv('../data/explosion/vto.txt', sep=" ", header=None)
     # print(data)
-    with open('../data/explosion/signal1.txt', 'rb') as f:
-        x1, x2, x3 = np.loadtxt(f, delimiter=' ', usecols=(0, 1, 2), unpack=True)
+    # with open('../data/explosion/signal1.txt', 'rb') as f:
+    #     x1, x2, x3 = np.loadtxt(f, delimiter=' ', usecols=(0, 1, 2), unpack=True)
+    #
+     fs = 1 / 0.04
+    # print(fs)
+    # print(len(x2) / fs)
+    #
+    # # plotting_cbs_for_raw(x2[10500:], x3[10500:], 'vto', fs, 128, 100, pad_to=None)
+    # plotting_cbs_for_raw(x2[:3000], x1[:3000], 'signal0', fs, 50, 46, pad_to=None)
+    # # plotting_spectrum_for_raw(x1, 'signal0-1', fs, 50, 48, pad_to=None)
+    # # plotting_spectrum_for_raw(x2, 'signal0-2', fs, 50, 48, pad_to=None)
+    # # plotting_spectrum_for_raw(x3, 'signal0-3', fs, 50, 48, pad_to=None)
+    # # plotting_pbs_for_raw(x3[10.8*fs:], 'vto-3', fs, 128, 120, pad_to=None)
+    # # plotting_spectrum_for_raw(x2, 'signal0-2', fs, 25, 0, pad_to=None)
+    # # plotting_spectrum_for_raw(x3, 'signal0-3', fs, 25, 0, pad_to=None)
+    #
+    # plt.show()
 
-    fs = 1 / 0.04
-    print(fs)
-    print(len(x2) / fs)
 
-    # plotting_cbs_for_raw(x2[10500:], x3[10500:], 'vto', fs, 128, 100, pad_to=None)
-    plotting_cbs_for_raw(x2[:3000], x1[:3000], 'signal0', fs, 50, 46, pad_to=None)
-    # plotting_spectrum_for_raw(x1, 'signal0-1', fs, 50, 48, pad_to=None)
-    # plotting_spectrum_for_raw(x2, 'signal0-2', fs, 50, 48, pad_to=None)
-    # plotting_spectrum_for_raw(x3, 'signal0-3', fs, 50, 48, pad_to=None)
-    # plotting_pbs_for_raw(x3[10.8*fs:], 'vto-3', fs, 128, 120, pad_to=None)
-    # plotting_spectrum_for_raw(x2, 'signal0-2', fs, 25, 0, pad_to=None)
-    # plotting_spectrum_for_raw(x3, 'signal0-3', fs, 25, 0, pad_to=None)
-
-    plt.show()
