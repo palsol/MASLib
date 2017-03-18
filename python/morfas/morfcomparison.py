@@ -140,3 +140,51 @@ def compare_chunks(data, axis):
             result[i] = compare_chunk(data[:, i], axis)
 
     return result
+
+
+class MorfComporator:
+    def __init__(self, window_size, data_size):
+        self.__window_size = window_size
+        self.__data_size = data_size
+        self.__data = np.zeros((window_size, data_size))
+        self.__comparison_matrix = np.zeros(shape=(window_size, window_size))
+
+    def push(self, item):
+        self.__data[0:-1] = self.data[1:]
+        self.__data[-1] = item
+        self.__comparison_matrix[0:-1] = self.__comparison_matrix[1:]
+        for i in range(self.__window_size):
+            self.__comparison_matrix[-1, i] = (mas.proximity(self.__data[i], self.__data[-1]) +
+                                             mas.proximity(self.__data[-1], self.__data[i])) / 2
+    def getsiftspectre(self):
+        return self.__comparison_matrix.sum(axis=0)
+
+    @property
+    def data(self):
+        return self.__data
+
+    @property
+    def comparison_matrix(self):
+        return self.__comparison_matrix
+
+    def out(self):
+        print(self.__data)
+        print(self.__comparison_matrix)
+
+    def __repr__(self):
+        return "MorfComporator() " + str(self.size)
+
+    def __str__(self):
+        return "MorfComporator " + str(self.size)
+
+    # def isEmpty(self):
+    #     return self.items == []
+    #
+    # def enqueue(self, item):
+    #     self.items.insert(0,item)
+    #
+    # def dequeue(self):
+    #     return self.items.pop()
+
+    def size(self):
+        return len(self.items)

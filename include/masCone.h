@@ -29,6 +29,7 @@ public:
     vector<double> approximation(vector<double> signal);
     vector<double> getChunkProximity(vector<double> signal);
     double getProximity(vector<double> signal);
+    double getProximityConstDistinction(vector<double> signal);
 
     static double distance(vector<double> A, vector<double> B);
 

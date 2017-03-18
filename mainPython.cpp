@@ -116,7 +116,7 @@ static PyObject *proximity(PyObject *self, PyObject *args) {
     masCone testCone(coneData);
 
     double result;
-    result = testCone.getProximity(signal);
+    result = testCone.getProximityConstDistinction(signal);
 
     PyObject *resultPy = PyFloat_FromDouble(result);
 

@@ -116,6 +116,17 @@ def compress_spectrum(spectrogram, window_len):
     spectrogram_compresed = spectrogram_smooth[0:spectrogram.shape[0]: window_len]
     return spectrogram_compresed
 
+def compress_scalogram(scalogram, window_len):
+    """Simple compress the scalogram using smooth.
+
+     input:
+        scalogram: the input spectrogram
+        window_len: the dimension of the smoothing window; should be an odd integer
+
+    """
+    scalogram_smooth = np.apply_along_axis(smooth, 1, scalogram, window_len)
+    scalogram_compresed = scalogram_smooth[:, 0:scalogram.shape[1]: window_len]
+    return scalogram_compresed
 
 def wav_to_spectrogram(wav_file, time_start, time_end, nfft=2048, noverlap=None, pad_to=None):
     if noverlap is None:

@@ -19,11 +19,11 @@ if __name__ == '__main__':
     fs = 1 / 0.04
     print(fs)
     print(len(x2) / fs)
-    nfft = 50
-    noverlap = 46
+    nfft = 150
+    noverlap = 149
     pad_to = None
 
-    spectrogram, freq, time = mlab.specgram(x=x1, NFFT=nfft, Fs=fs,
+    spectrogram, freq, time = mlab.specgram(x=x3[0*fs:25*fs], NFFT=nfft, Fs=fs,
                                             detrend=None, window=None,
                                             noverlap=noverlap, pad_to=pad_to,
                                             sides=None,
@@ -32,7 +32,9 @@ if __name__ == '__main__':
 
     spectrogram = spectrogram[::-1]
     log_spectrogram = np.log(spectrogram)
-    beat_spectrum, compare_result = bs.beat_spectre(log_spectrogram, smoothing=4)
+    log_spectrogram /= np.nanmax(log_spectrogram)
+    log_spectrogram = log_spectrogram[:][-25:]
+    beat_spectrum, compare_result = bs.beat_spectre(log_spectrogram)
 
     # Normalize for plot
     freq_scale = freq.max() - freq.min()
@@ -42,10 +44,10 @@ if __name__ == '__main__':
     beat_spectrum *= freq_scale
     beat_spectrum = beat_spectrum + freq.min()
 
-    fig, axes = plt.subplots(nrows=1, sharex='all', sharey='all', figsize=(20, 10))
-    plt.subplot(211)
+    fig, axes = plt.subplots(nrows=1, ncols=2, sharex='all', sharey='all', figsize=(20, 10))
+    plt.subplot(121)
     plt.imshow(compare_result, vmin=0, vmax=1, cmap='jet', aspect='1')
-    plt.subplot(212)
+    plt.subplot(122)
     plt.imshow(log_spectrogram, cmap='jet', aspect='auto', zorder=0)
     plt.plot(beat_spectrum, linewidth=1, zorder=1, color='k')
     plt.axis(xmin=0, xmax=compare_result.shape[0])

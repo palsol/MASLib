@@ -69,18 +69,27 @@ vector<double> masCone::getChunkProximity(vector<double> signal) {
 }
 
 
-
 double masCone::getProximity(vector<double> signal) {
 
     double result = 0;
     if (signal.size() == getDim()) {
         vector<double> signalApproximation = approximation(signal);
-        vector<double> constSignal;
-        constSignal.resize(signal.size());
-        masCone constCone(constSignal);
-        vector<double> signalConstApproximation = constCone.approximation(signal);
+        result = distance(signal, signalApproximation);
+    }
+    return result;
+}
 
-        result = distance(signal, signalApproximation)/distance(signalConstApproximation, signalApproximation);
+double masCone::getProximityConstDistinction(vector<double> signal) {
+
+    double result = 0;
+    if (signal.size() == getDim()) {
+        vector<double> signalApproximation = approximation(signal);
+        vector<double> signalConstApproximation;
+        double sum = std::accumulate(signal.begin(), signal.end(), 0.0);
+        double mean = sum / signal.size();
+        signalConstApproximation.assign(signal.size(), mean);
+
+        result = distance(signal, signalApproximation) / distance(signalConstApproximation, signalApproximation);
     }
     return result;
 }
@@ -91,7 +100,7 @@ void masCone::initialization(vector<double> data) {
     iota(order.begin(), order.end(), 0);
 
     sort(order.begin(), order.end(),
-         [&data](size_t i1, size_t i2) {return data[i1] < data[i2]; });
+         [&data](size_t i1, size_t i2) { return data[i1] < data[i2]; });
 }
 
 vector<double> masCone::restore(vector<double> data) {

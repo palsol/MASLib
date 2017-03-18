@@ -112,8 +112,14 @@ WIP
 
 
 def classify_beat_spectrum_extrema(beat_spectrum):
-    extrema = signal.argrelextrema(beat_spectrum, np.less, mode='wrap')
-    beat_spectrum_max = beat_spectrum[extrema]
+    a = np.array((1000000000, 1000000000, 1000000000, -1000000000, -2000000000, 1000000000))
+    b = a[::-1]
+    print(len(beat_spectrum))
+    ex_beat_spectrum = np.concatenate((a, beat_spectrum), axis=0)
+    ex_beat_spectrum = np.concatenate((ex_beat_spectrum, b), axis=0)
+
+    extrema = signal.argrelextrema(ex_beat_spectrum, np.less, mode='wrap')
+    beat_spectrum_max = ex_beat_spectrum[extrema]
     ex = [list(extrema)]
 
     while len(ex[-1][0]) != 0:
@@ -125,9 +131,8 @@ def classify_beat_spectrum_extrema(beat_spectrum):
 
     ex.pop()
     # print(ex)
-    # print(len(ex))
 
-    beat_spectrum_max = np.zeros(beat_spectrum.shape[0])
+    beat_spectrum_max = np.zeros(ex_beat_spectrum.shape[0])
     rank_pos = []
     for i in range(len(ex)):
         pos = ex[0][0]
@@ -135,9 +140,9 @@ def classify_beat_spectrum_extrema(beat_spectrum):
             pos = pos[ex[j + 1][0]]
         # print(pos)
         rank_pos.append(pos)
-        beat_spectrum_max[pos] += 1
+        beat_spectrum_max[pos - 6] += 1
 
-    return beat_spectrum_max, rank_pos
+    return beat_spectrum_max[0:-12], rank_pos
 
 
 def analys_beat_spectrum_max(rank_pos, compare_result):
