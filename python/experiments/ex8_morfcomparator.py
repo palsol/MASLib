@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
+from moviepy.editor import VideoClip
+from moviepy.video.io.bindings import mplfig_to_npimage
 
 import python.morfas.tools as tools
 import python.morfas.beatspectre as bs
@@ -8,12 +10,12 @@ import python.morfas.morfcomparison as mcl
 import time as timer
 
 if __name__ == '__main__':
-    audio_path = "/home/palsol/CLionProjects/MASLib/data/M O O N - Crystals.wav"
+    audio_path = "/home/palsol/CLionProjects/MASLib/data/mk.wav"
     scale = 8
 
     start = 0
-    time_start = start + 0.2
-    time_end = start + 160
+    time_start = start + 0.4
+    time_end = start + 132
     nfft = 1024
     noverlap = 512
 
@@ -28,9 +30,12 @@ if __name__ == '__main__':
     log_spectrogram /= np.nanmax(log_spectrogram)
     log_spectrogram = 1 - log_spectrogram
 
-    time_step = 1.0 / (spectrogram.shape[1] / (time_end - time_start))
+    clip_length = time_end - time_start
+    time_step = 1.0 / (spectrogram.shape[1] / (clip_length))
+    frame_step = (spectrogram.shape[1] / (clip_length))
+    print(frame_step)
     print(time_step)
-    win_size = 4 * int(spectrogram.shape[1] / (time_end - time_start))
+    win_size = 4 * int(spectrogram.shape[1] / (clip_length))
     data_size = spectrogram.shape[0]
 
     mc = mcl.MorfComporator(win_size, data_size)
@@ -61,10 +66,12 @@ if __name__ == '__main__':
             now = timer.time()
             diff = int(now - then)
             minutes, seconds = diff // 60, diff % 60
-            print('step: ' + str(i) + ' time: ' + str(frame_time[i]) + ' comparison time: ' + str(minutes) + ':' + str(seconds).zfill(2))
+            print('step: ' + str(i) + ' time: ' + str(frame_time[i]) + ' comparison time: ' + str(minutes) + ':' + str(
+                seconds).zfill(2))
 
     ax.set_xlim([0, win_size])
-    ax.set_ylim([0, ssdata.max()/5])
+    print(ssdata.max())
+    ax.set_ylim([0, 20])
 
 
     def init():
@@ -76,18 +83,31 @@ if __name__ == '__main__':
         return line, im, time_text
 
 
+    # def animate(i):
+    #     time_text.set_text('frame = %.1f' % frame_time[i])
+    #     data = ssdata[i]
+    #     im.set_array(specdata[i])
+    #     line.set_ydata(data)  # update the data
+    #     return line, im, time_text
+
     def animate(i):
-        time_text.set_text('frame = %.1f' % frame_time[i])
-        data = ssdata[i]
-        im.set_array(specdata[i])
+        frame = i*frame_step
+        time_text.set_text('frame = %.1f' % frame_time[frame])
+        data = ssdata[frame]
+        im.set_array(specdata[frame])
         line.set_ydata(data)  # update the data
-        return line, im, time_text
+        return mplfig_to_npimage(fig)
 
 
-    ani = animation.FuncAnimation(fig, animate, np.arange(1, spectrogram.shape[1]), init_func=init,
-                                  interval=25, blit=True)
+    animation = VideoClip(animate, duration=clip_length)
+    animation.write_videofile("/home/palsol/CLionProjects/MASLib/data/03.0011.mp4",
+                              fps=25, codec='libx264')
 
-    ani.save('/home/palsol/CLionProjects/MASLib/data/res/animate/M O O N - Crystals.mp4', fps=int(spectrogram.shape[1] / (time_end - time_start)),
-             extra_args=['-vcodec', 'libx264'])
 
-    plt.show()
+    # ani = animation.FuncAnimation(fig, animate, np.arange(1, spectrogram.shape[1]), init_func=init,
+    #                               interval=25, blit=True)
+    #
+    # ani.save('/home/palsol/CLionProjects/MASLib/data/res/animate/M O O N - Crystals.mp4', fps=init(spectrogram.shape[1] / (time_end - time_start)),
+    #          extra_args=['-vcodec', 'libx264'])
+    #
+    # plt.show()
