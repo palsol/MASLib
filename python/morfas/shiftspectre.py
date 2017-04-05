@@ -17,7 +17,7 @@ import python.morfas.morfcomparison as mcl
 import python.morfas.tools as tools
 
 
-def beat_spectre(log_spectrogram, smoothing=None):
+def shift_spectre(log_spectrogram, smoothing=None):
     then = timer.time()
     compare_result = mcl.compare_chunk(log_spectrogram, 'y')
 
@@ -35,12 +35,35 @@ def beat_spectre(log_spectrogram, smoothing=None):
     now = timer.time()
     diff = int(now - then)
     minutes, seconds = diff // 60, diff % 60
-    print('comparison time: ' + str(minutes) + ':' + str(seconds).zfill(2))
+    print('morf comparison time: ' + str(minutes) + ':' + str(seconds).zfill(2))
 
     return beat_spectrum, compare_result
 
 
-def cross_beat_spectre(log_spectrogram1, log_spectrogram2, smoothing=None):
+def shift_spectre_corr(log_spectrogram, smoothing=None):
+    then = timer.time()
+    compare_result = mcl.compare_chunk_corr(log_spectrogram, 'y')
+
+    max_res = np.nanmax(compare_result)
+    print(max_res)
+    beat_spectrum = np.zeros(compare_result.shape[0])
+
+    for k in range(compare_result.shape[0]):
+        for i in range(compare_result.shape[0] - k):
+            beat_spectrum[k] += (compare_result[i, i + k])
+
+    if smoothing is not None:
+        beat_spectrum = tools.smooth(beat_spectrum, window_len=smoothing)[0:compare_result.shape[0]]
+
+    now = timer.time()
+    diff = int(now - then)
+    minutes, seconds = diff // 60, diff % 60
+    print('corr comparison time: ' + str(minutes) + ':' + str(seconds).zfill(2))
+
+    return beat_spectrum, compare_result
+
+
+def cross_shift_spectre(log_spectrogram1, log_spectrogram2, smoothing=None):
     then = timer.time()
 
     compare_result = mcl.chunk_cross_comparison(log_spectrogram1, log_spectrogram2, 'y')
@@ -69,7 +92,7 @@ def cross_beat_spectre(log_spectrogram1, log_spectrogram2, smoothing=None):
     return beat_spectrum, compare_result
 
 
-def plotting_bs_for_raw(data, rate, nfft, noverlap, pad_to=None):
+def plotting_ss_for_raw(data, rate, nfft, noverlap, pad_to=None):
     spectrogram, freq, time = mlab.specgram(x=data, NFFT=nfft, Fs=rate,
                                             detrend=None, window=None,
                                             noverlap=noverlap, pad_to=pad_to,
@@ -79,10 +102,10 @@ def plotting_bs_for_raw(data, rate, nfft, noverlap, pad_to=None):
 
     spectrogram = spectrogram[::-1]
     log_spectrogram = np.log(spectrogram)
-    return beat_spectre(log_spectrogram), freq, time
+    return shift_spectre(log_spectrogram), freq, time
 
 
-def plotting_cbs_for_raw(data1, data2, rate, nfft, noverlap, pad_to=None):
+def plotting_css_for_raw(data1, data2, rate, nfft, noverlap, pad_to=None):
     spectrogram1, freq, time = mlab.specgram(x=data1, NFFT=nfft, Fs=rate,
                                              detrend=None, window=None,
                                              noverlap=noverlap, pad_to=pad_to,
@@ -100,7 +123,23 @@ def plotting_cbs_for_raw(data1, data2, rate, nfft, noverlap, pad_to=None):
     spectrogram2 = spectrogram2[::-1]
     log_spectrogram1 = np.log(spectrogram1)
     log_spectrogram2 = np.log(spectrogram2)
-    return cross_beat_spectre(log_spectrogram1, log_spectrogram2, smoothing=4), freq, time
+    return cross_shift_spectre(log_spectrogram1, log_spectrogram2, smoothing=4), freq, time
+
+
+def ss_with_window(data, win_size, comparison_func='corr'):
+    if comparison_func == 'morf':
+        mc = mcl.MorfComporator(win_size, data.shape[0])
+
+    else:
+        mc = mcl.CorrComporator(win_size, data.shape[0])
+
+    ss_result = np.zeros((data.shape[1], win_size))
+    for i in range(0, data.shape[1], ):
+        ss_result[i] = mc.getshiftspectre()[-1::-1]
+        mc.push(data[:, i])
+
+    ss_result = ss_result.T
+    return ss_result
 
 
 """

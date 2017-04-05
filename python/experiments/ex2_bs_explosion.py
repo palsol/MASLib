@@ -10,7 +10,7 @@ import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 import numpy as np
 
-import python.morfas.beatspectre as bs
+import python.morfas.shiftspectre as bs
 
 if __name__ == '__main__':
     with open('../../data/explosion/signal1.txt', 'rb') as f:
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     log_spectrogram = np.log(spectrogram)
     log_spectrogram /= np.nanmax(log_spectrogram)
     log_spectrogram = log_spectrogram[:][-25:]
-    beat_spectrum, compare_result = bs.beat_spectre(log_spectrogram)
+    beat_spectrum, compare_result = bs.shift_spectre(log_spectrogram)
 
     # Normalize for plot
     freq_scale = freq.max() - freq.min()

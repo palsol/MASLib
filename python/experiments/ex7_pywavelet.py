@@ -15,7 +15,7 @@ import soundfile as sf
 from obspy.signal.tf_misfit import cwt
 import pywt
 
-import python.morfas.beatspectre as bs
+import python.morfas.shiftspectre as bs
 import python.morfas.tools as tools
 from wavelets import WaveletAnalysis
 

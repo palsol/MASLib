@@ -724,8 +724,8 @@ if __name__ == '__main__':
     # print(fs)
     # print(len(x2) / fs)
     #
-    # # plotting_cbs_for_raw(x2[10500:], x3[10500:], 'vto', fs, 128, 100, pad_to=None)
-    # plotting_cbs_for_raw(x2[:3000], x1[:3000], 'signal0', fs, 50, 46, pad_to=None)
+    # # plotting_css_for_raw(x2[10500:], x3[10500:], 'vto', fs, 128, 100, pad_to=None)
+    # plotting_css_for_raw(x2[:3000], x1[:3000], 'signal0', fs, 50, 46, pad_to=None)
     # # plotting_spectrum_for_raw(x1, 'signal0-1', fs, 50, 48, pad_to=None)
     # # plotting_spectrum_for_raw(x2, 'signal0-2', fs, 50, 48, pad_to=None)
     # # plotting_spectrum_for_raw(x3, 'signal0-3', fs, 50, 48, pad_to=None)

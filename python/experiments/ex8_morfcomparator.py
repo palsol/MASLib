@@ -2,10 +2,11 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
 from moviepy.editor import VideoClip
+from moviepy.editor import AudioFileClip
 from moviepy.video.io.bindings import mplfig_to_npimage
 
 import python.morfas.tools as tools
-import python.morfas.beatspectre as bs
+import python.morfas.shiftspectre as bs
 import python.morfas.morfcomparison as mcl
 import time as timer
 
@@ -14,8 +15,8 @@ if __name__ == '__main__':
     scale = 8
 
     start = 0
-    time_start = start + 0.4
-    time_end = start + 132
+    time_start = start + 0.5
+    time_end = start + 130
     nfft = 1024
     noverlap = 512
 
@@ -71,7 +72,7 @@ if __name__ == '__main__':
 
     ax.set_xlim([0, win_size])
     print(ssdata.max())
-    ax.set_ylim([0, 20])
+    ax.set_ylim([0, 45])
 
 
     def init():
@@ -91,7 +92,7 @@ if __name__ == '__main__':
     #     return line, im, time_text
 
     def animate(i):
-        frame = i*frame_step
+        frame = i * frame_step
         time_text.set_text('frame = %.1f' % frame_time[frame])
         data = ssdata[frame]
         im.set_array(specdata[frame])
@@ -99,8 +100,11 @@ if __name__ == '__main__':
         return mplfig_to_npimage(fig)
 
 
-    animation = VideoClip(animate, duration=clip_length)
-    animation.write_videofile("/home/palsol/CLionProjects/MASLib/data/03.0011.mp4",
+    animation = VideoClip(animate, duration=clip_length)\
+        .set_audio(AudioFileClip('/home/palsol/CLionProjects/MASLib/data/mk.wav')
+                   .set_start(time_start).set_end(time_end))
+
+    animation.write_videofile("/home/palsol/CLionProjects/MASLib/data/mountain_king.mp4",
                               fps=25, codec='libx264')
 
 

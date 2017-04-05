@@ -69,7 +69,7 @@ def smooth(x, window_len=16, window='hanning'):
     example:
 
     t=linspace(-2,2,0.1)
-    x=sin(t)+randn(len(t))*0.1
+    x=sin(t)+randn(len(t))*0.150
     y=smooth(x)
 
     see also:
@@ -128,11 +128,17 @@ def compress_scalogram(scalogram, window_len):
     scalogram_compresed = scalogram_smooth[:, 0:scalogram.shape[1]: window_len]
     return scalogram_compresed
 
-def wav_to_spectrogram(wav_file, time_start, time_end, nfft=2048, noverlap=None, pad_to=None):
+def wav_to_spectrogram(wav_file, time_start=0, time_end=None, nfft=2048, noverlap=None, pad_to=None):
     if noverlap is None:
         noverlap = nfft / 2  # same default noverlap
 
     data, rate = sf.read(wav_file, always_2d=True)
+
+    if time_end is None:
+        time_end = data.shape[0]/rate
+        time_end -= 3
+        print(time_end)
+
     data = data[rate * time_start:rate * time_end, 0]
 
     spec, freqs, t = mlab.specgram(x=data, NFFT=nfft, Fs=rate,

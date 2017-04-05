@@ -16,7 +16,7 @@ import obspy
 from obspy.imaging.cm import obspy_sequential
 from obspy.signal.tf_misfit import cwt
 
-import python.morfas.beatspectre as bs
+import python.morfas.shiftspectre as bs
 import python.morfas.tools as tools
 
 if __name__ == '__main__':
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     log_spectrogram = 1 - log_spectrogram
 
     scalogram = np.abs(scalogram)
-    beat_spectrum, compare_result = bs.beat_spectre(scalogram)
+    beat_spectrum, compare_result = bs.shift_spectre(scalogram)
 
     # Normalize for plot
     freq_scale = f_max - f_min
