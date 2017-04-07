@@ -337,6 +337,7 @@ class CorrComporator:
         self.__comparison_matrix[0:-1] = self.__comparison_matrix[1:]
         for i in range(self.__window_size):
             self.__comparison_matrix[-1, i] = 1 - np.dot(self.__data[i], self.__data[-1]) / (np.linalg.norm(self.__data[i]) * np.linalg.norm(self.__data[-1]))
+            print(self.__comparison_matrix[-1, i])
 
     def getshiftspectre(self):
         return self.__comparison_matrix.sum(axis=0)

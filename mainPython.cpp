@@ -230,6 +230,7 @@ static PyObject *compareTwoSignals(PyObject *self, PyObject *args) {
 
 static PyObject *test(PyObject *self, PyObject *args) {
     cout << "HELLO " << endl;
+    return 0;
 }
 
 PyMODINIT_FUNC PyInit_mas(void) {

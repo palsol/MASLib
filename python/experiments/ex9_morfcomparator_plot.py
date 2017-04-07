@@ -8,12 +8,12 @@ import python.morfas.shiftspectre as ss
 import python.morfas.tools as tools
 
 if __name__ == '__main__':
-    audio_path = "/home/palsol/CLionProjects/MASLib/data/mk.wav"
+    audio_path = "../../data/Gershon Kingsley - popcorn (original 1969).wav"
     scale = 8
 
-    start = 60
+    start = 1
     time_start = start + 0
-    time_end = start + 1 * 60
+    time_end = start + 8
     nfft = 1024
     noverlap = 512
     win_size_t = 0.5
@@ -24,7 +24,7 @@ if __name__ == '__main__':
                                                        nfft=nfft,
                                                        noverlap=noverlap)
     # time_end = start + time.max()comparison_func='morf'
-    spectrogram = spectrogram[::-1]
+    spectrogram = spectrogram[0:200]
     spectrogram = tools.compress_spectrum(spectrogram, scale)
     spectrogram[spectrogram == 0] += 10 ** -22
     log_spectrogram = -1 * np.log(spectrogram)
@@ -44,22 +44,51 @@ if __name__ == '__main__':
     print('window size(sec): ' + str(win_size_t))
 
     ssdata = ss.ss_with_window(log_spectrogram, win_size)
-    win_size1 = int(4 * int(ssdata.shape[1] / clip_length))
-    ssdata = ss.ss_with_window(ssdata, win_size1, comparison_func='morf')
 
-    fig = plt.figure(figsize=(10, 5))
+    fig = plt.figure(figsize=(10, 20))
     ssdata_without_nan = ssdata[np.logical_not(np.isnan(ssdata))]
     ssdata_without_nan = ssdata_without_nan[np.logical_not(np.isinf(ssdata_without_nan))]
     ssdata_max = np.percentile(ssdata_without_nan, 99)
     ssdata_min = ssdata_without_nan.min()
     print('min = ' + str(ssdata_min) + ' max = ' + str(ssdata_max))
-    ax1 = fig.add_subplot(111)
+    ax1 = fig.add_subplot(311)
     x, y = np.meshgrid(
         np.linspace(time_start, time_end, ssdata.shape[1]),
-        np.linspace(0, 4, ssdata.shape[0]))
-    ax1.set_title("shiftgramm")
+        np.linspace(0, win_size_t, ssdata.shape[0]))
+    ax1.set_title("Shiftgramm")
     ax1.set_ylabel("Window time[Seconds]")
     ax1.set_xlabel("Time [Seconds]")
     ax1.pcolormesh(x, y, ssdata, vmin=ssdata_min, vmax=ssdata_max, cmap='jet')
+    ax1.axis('tight')
+
+    win_size_t = 4
+    win_size1 = int(win_size_t * int(ssdata.shape[1] / clip_length))
+    ssdata = ss.ss_with_window(ssdata, win_size1, comparison_func='corr')
+
+    ssdata_without_nan = ssdata[np.logical_not(np.isnan(ssdata))]
+    ssdata_without_nan = ssdata_without_nan[np.logical_not(np.isinf(ssdata_without_nan))]
+    ssdata_max = np.percentile(ssdata_without_nan, 99)
+    ssdata_min = ssdata_without_nan.min()
+    print('min = ' + str(ssdata_min) + ' max = ' + str(ssdata_max))
+    ax2 = fig.add_subplot(312)
+    x, y = np.meshgrid(
+        np.linspace(time_start, time_end, ssdata.shape[1]),
+        np.linspace(0, win_size_t, ssdata.shape[0]))
+    ax2.set_title("Shiftgramm")
+    ax2.set_ylabel("Window time[Seconds]")
+    ax2.set_xlabel("Time [Seconds]")
+    ax2.pcolormesh(x, y, ssdata, vmin=ssdata_min, vmax=ssdata_max, cmap='jet')
+    ax2.axis('tight')
+
+    ax3 = fig.add_subplot(313)
+    x, y = np.meshgrid(
+        np.linspace(time_start, time_end, log_spectrogram.shape[1]),
+        np.linspace(freq.min(), freq.max(), log_spectrogram.shape[0]))
+
+    ax3.set_title("Spectrogramm")
+    ax3.set_ylabel("Frequency [Hz]")
+    ax3.set_xlabel("Time [Seconds]")
+    ax3.pcolormesh(x, y, log_spectrogram,  cmap='jet')
+    ax3.axis('tight')
 
     plt.show()

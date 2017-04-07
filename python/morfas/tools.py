@@ -139,7 +139,7 @@ def wav_to_spectrogram(wav_file, time_start=0, time_end=None, nfft=2048, noverla
         time_end -= 3
         print(time_end)
 
-    data = data[rate * time_start:rate * time_end, 0]
+    data = data[int(rate * time_start):int(rate * time_end), 0]
 
     spec, freqs, t = mlab.specgram(x=data, NFFT=nfft, Fs=rate,
                                    detrend=None, window=None,
