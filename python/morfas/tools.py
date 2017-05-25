@@ -13,6 +13,7 @@ import matplotlib.mlab as mlab
 import numpy as np
 import soundfile as sf
 from numpy.lib.stride_tricks import as_strided
+from pydub import AudioSegment
 
 def normalize_whitespace_in_file(name):
     f = open(name)
@@ -148,3 +149,27 @@ def wav_to_spectrogram(wav_file, time_start=0, time_end=None, nfft=2048, noverla
                                    scale_by_freq=None,
                                    mode=None)
     return spec, freqs, t
+
+def mp3_to_spectrogram(mp3_file, time_start=0, time_end=None, ch=1, nfft=2048, noverlap=None, pad_to=None):
+    if noverlap is None:
+        noverlap = nfft / 2  # same default noverlap
+
+    song = AudioSegment.from_mp3(mp3_file)
+    data = np.array(song.get_array_of_samples()[ch - 1::2])
+    rate = song.frame_rate
+
+    if time_end is None:
+        time_end = data.shape[0]/rate
+        time_end -= 3
+        print(time_end)
+
+    data = data[int(rate * time_start):int(rate * time_end)]
+
+    spec, freqs, t = mlab.specgram(x=data, NFFT=nfft, Fs=rate,
+                                   detrend=None, window=None,
+                                   noverlap=noverlap, pad_to=pad_to,
+                                   sides=None,
+                                   scale_by_freq=None,
+                                   mode=None)
+    return spec, freqs, t
+

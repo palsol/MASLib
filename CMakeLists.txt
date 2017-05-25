@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.6)
-project(MASLib)
+cmake_minimum_required(VERSION 3.5)
+project(untitled)
 
-set(CMAKE_CXX_STANDARD 11)
-include_directories(contrib)
-set(SOURCE_FILES include/masCone.h cpp/masCone.cpp main.cpp)
-add_executable(MASLib ${SOURCE_FILES})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
+set(SOURCE_FILES main.cpp)
+add_executable(untitled ${SOURCE_FILES})

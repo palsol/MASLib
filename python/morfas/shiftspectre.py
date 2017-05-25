@@ -126,12 +126,14 @@ def plotting_css_for_raw(data1, data2, rate, nfft, noverlap, pad_to=None):
     return cross_shift_spectre(log_spectrogram1, log_spectrogram2, smoothing=4), freq, time
 
 
-def ss_with_window(data, win_size, comparison_func='corr'):
-    if comparison_func == 'morf':
-        mc = mcl.MorfComporator(win_size, data.shape[0])
-
-    else:
-        mc = mcl.CorrComporator(win_size, data.shape[0])
+def ss_with_window(data, win_size, mc=None, comparison_func='corr'):
+    if mc is None:
+        if comparison_func == 'morf':
+            mc = mcl.MorfComporator(win_size, data.shape[0])
+        elif comparison_func == 'cumorf':
+            mc = mcl.cuMorfComporator(win_size, data.shape[0])
+        else:
+            mc = mcl.CorrComporator(win_size, data.shape[0])
 
     ss_result = np.zeros((data.shape[1], win_size))
     for i in range(0, data.shape[1], ):
@@ -140,6 +142,15 @@ def ss_with_window(data, win_size, comparison_func='corr'):
 
     ss_result = ss_result.T
     return ss_result
+
+def analys_shift_spectrum(ssdata):
+    extrema = signal.argrelextrema(ssdata, np.less, mode='wrap')
+    if len(extrema[0]) > 1 :
+        shift_spectrum_min = ssdata[extrema]
+        min_index = np.where(shift_spectrum_min[0:] == shift_spectrum_min[1:].min())[0][0]
+        return extrema[0][min_index]
+    else:
+        return 0
 
 
 """

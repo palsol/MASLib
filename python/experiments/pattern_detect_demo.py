@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import matplotlib.patches as mpatches
 import numpy as np
 from moviepy.editor import VideoClip
 from moviepy.editor import AudioFileClip
@@ -8,58 +9,56 @@ from moviepy.video.io.bindings import mplfig_to_npimage
 import python.morfas.tools as tools
 import python.morfas.shiftspectre as bs
 import python.morfas.morfcomparison as mcl
+import scipy.signal as signal
 import time as timer
 
 if __name__ == '__main__':
 
-    audio_path = "C:/Users/palsol/CLionProjects/MASLib/data/Speedy J - The Oil Zone.mp3"
+    audio_path = "C:/Users/palsol/CLionProjects/MASLib/data/mozart vals.mp3"
     scale = 1
 
-    start = 40
+    start = 20
     time_start = start + 0.5
-    time_end = start + 20
+    time_end = start + 40
     nfft = 1024
     noverlap = 512
+    win_size_t = 8
 
     # spectrogram, freq, time = tools.wav_to_spectrogram(audio_path,
     #                                                    time_start,
     #                                                    time_end,
     #                                                    nfft=nfft,
     #                                                    noverlap=noverlap)
-
+    print(time_start)
+    print(time_end)
     spectrogram, freq, time = tools.mp3_to_spectrogram(audio_path,
                                                        time_start,
                                                        time_end,
                                                        ch=1,
                                                        nfft=nfft,
                                                        noverlap=noverlap)
-
-    spectrogram = spectrogram[::-1]
+    cut_freq = int(nfft / 2 * 3 / 4)
+    freq = freq[0:-1 * int(nfft / 2 - cut_freq)]
+    spectrogram = spectrogram[::]
     spectrogram = tools.compress_spectrum(spectrogram, scale)
+    spectrogram[spectrogram == 0] += 10 ** -22
     log_spectrogram = -1 * np.log(spectrogram)
     log_spectrogram /= np.nanmax(log_spectrogram)
     log_spectrogram = 1 - log_spectrogram
 
     clip_length = time_end - time_start
-    time_step = 1.0 / (spectrogram.shape[1] / (clip_length))
-    frame_step = int(spectrogram.shape[1] / (clip_length))
-    print(frame_step)
-    print(time_step)
-    win_size = 4 * int(spectrogram.shape[1] / (clip_length))
+    time_step = 1.0 / (spectrogram.shape[1] / clip_length)
+    frame_step = int(spectrogram.shape[1] / clip_length)
+    win_size = int(win_size_t * frame_step)
     data_size = spectrogram.shape[0]
 
+    print('clip lenght(sec): ' + str(clip_length))
+    print('frame step(count): ' + str(frame_step))
+    print('time step(sec): ' + str(time_step))
+    print('window size(count): ' + str(win_size))
+    print('window size(sec): ' + str(win_size_t))
+
     mc = mcl.CorrComporator(win_size, data_size)
-
-    fig = plt.figure(figsize=(20, 10))
-
-    ax = fig.add_subplot(211)
-    x = np.arange(0, win_size, 1)
-    print(x.shape)
-    line, = ax.plot(x, mc.getshiftspectre())
-
-    ax1 = fig.add_subplot(212)
-    im = ax1.imshow(mc.data.T, cmap='jet', animated=True, vmin=0, vmax=1)
-    time_text = ax.text(2, 30, '')
 
     ssdata = np.zeros((spectrogram.shape[1], win_size))
     specdata = np.zeros((spectrogram.shape[1], data_size, win_size))
@@ -79,40 +78,42 @@ if __name__ == '__main__':
             print('step: ' + str(i) + ' time: ' + str(frame_time[i]) + ' comparison time: ' + str(minutes) + ':' + str(
                 seconds).zfill(2))
 
-    ax.set_xlim([0, win_size])
-    print(ssdata.max())
-    ax.set_ylim([0, 45])
+    ssdata_without_nan = ssdata[np.logical_not(np.isnan(ssdata))]
+    ssdata_without_nan = ssdata_without_nan[np.logical_not(np.isinf(ssdata_without_nan))]
+    ssdata_max = np.percentile(ssdata_without_nan, 99)
+    ssdata_min = ssdata_without_nan.min()
 
+    fig = plt.figure(figsize=(20, 10))
+    ax1 = fig.add_subplot(211)
+    x = np.linspace(0, win_size_t, win_size)
+    line, = ax1.plot(x, ssdata[0])
+    scat = ax1.scatter(0, 0, color='r', s=40)
+    time_text = ax1.text(2, 30, '')
+    ax1.set_xlim([0, win_size_t])
+    ax1.set_ylim([0, ssdata_max])
 
-    def init():
-        """initialize animation"""
-        data = ssdata[0]
-        line.set_data(x, data)
-        im.set_array(specdata[0])
-        time_text.set_text('nnnnnn')
-        return line, im, time_text
+    ax2 = fig.add_subplot(212)
+    x, y = np.meshgrid(
+        np.linspace(win_size_t, 0, win_size),
+        np.linspace(freq.min(), freq.max(), data_size))
+    im = ax2.pcolormesh(x, y, specdata[20], cmap='jet')
 
-
-    # def animate(i):
-    #     time_text.set_text('frame = %.1f' % frame_time[i])
-    #     data = ssdata[i]
-    #     im.set_array(specdata[i])
-    #     line.set_ydata(data)  # update the data
-    #     return line, im, time_text
 
     def animate(i):
         frame = int(i * frame_step)
         data = ssdata[frame]
-        im.set_array(specdata[frame])
+        minss = bs.analys_shift_spectrum(data)
+        scat.set_offsets([minss*(win_size_t/(data.shape[0]-1)), data[minss]])
+        im.set_array(np.fliplr(specdata[frame][:-1, :-1]).ravel())
         line.set_ydata(data)  # update the data
         return mplfig_to_npimage(fig)
 
 
-    animation = VideoClip(animate, duration=clip_length)\
+    animation = VideoClip(animate, duration=clip_length) \
         .set_audio(AudioFileClip(audio_path)
                    .subclip(time_start, time_end))
 
-    animation.write_videofile("C:/Users/palsol/CLionProjects/MASLib/data/1Speedy J.mp4",
+    animation.write_videofile("C:/Users/palsol/CLionProjects/MASLib/data/vals.mp4",
                               fps=25, codec='libx264')
 
 

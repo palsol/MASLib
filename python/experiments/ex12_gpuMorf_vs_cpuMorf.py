@@ -14,16 +14,10 @@ if __name__ == '__main__':
 
     start = 1
     time_start = start + 0
-    time_end = start + 30
+    time_end = start + 60
     nfft = 1024
     noverlap = 512
-    win_size_t = 4
-
-    # spectrogram, freq, time = tools.wav_to_spectrogram(audio_path,
-    #                                                    time_start,
-    #                                                    time_end,
-    #                                                    nfft=nfft,
-    #                                                    noverlap=noverlap)
+    win_size_t = 20
 
     spectrogram, freq, time = tools.mp3_to_spectrogram(audio_path,
                                                        time_start,
@@ -52,8 +46,10 @@ if __name__ == '__main__':
     print('window size(count): ' + str(win_size))
     print('window size(sec): ' + str(win_size_t))
 
+    mc = mcl.cuMorfComporator(win_size, log_spectrogram.shape[0])
     start = t.time()
-    ssdata = ss.ss_with_window(log_spectrogram, win_size, comparison_func='cumorf')
+    ssdata = ss.ss_with_window(log_spectrogram, win_size, mc=mc)
+    print("GPU:  %f secs" % (t.time() - start))
 
     fig = plt.figure(figsize=(20, 10))
     ssdata_without_nan = ssdata[np.logical_not(np.isnan(ssdata))]
@@ -71,24 +67,24 @@ if __name__ == '__main__':
     ax1.pcolormesh(x, y, ssdata, vmin=ssdata_min, vmax=ssdata_max, cmap='jet')
     ax1.axis('tight')
 
-    # win_size_t = 4
-    # win_size1 = int(win_size_t * int(ssdata.shape[1] / clip_length))
-    # ssdata = ss.ss_with_window(ssdata, win_size1, comparison_func='cumorf')
-    #
-    # ssdata_without_nan = ssdata[np.logical_not(np.isnan(ssdata))]
-    # ssdata_without_nan = ssdata_without_nan[np.logical_not(np.isinf(ssdata_without_nan))]
-    # ssdata_max = np.percentile(ssdata_without_nan, 99)
-    # ssdata_min = ssdata_without_nan.min()
-    # print('min = ' + str(ssdata_min) + ' max = ' + str(ssdata_max))
-    # ax2 = fig.add_subplot(312)
-    # x, y = np.meshgrid(
-    #     np.linspace(time_start, time_end, ssdata.shape[1]),
-    #     np.linspace(0, win_size_t, ssdata.shape[0]))
-    # ax2.set_title("Shiftgramm")
-    # ax2.set_ylabel("Window time[Seconds]")
-    # ax2.set_xlabel("Time [Seconds]")
-    # ax2.pcolormesh(x, y, ssdata, vmin=ssdata_min, vmax=ssdata_max, cmap='jet')
-    # ax2.axis('tight')
+    start = t.time()
+    ssdata = ss.ss_with_window(log_spectrogram, win_size, comparison_func='morf')
+    print("CPU:  %f secs" % (t.time() - start))
+
+    ssdata_without_nan = ssdata[np.logical_not(np.isnan(ssdata))]
+    ssdata_without_nan = ssdata_without_nan[np.logical_not(np.isinf(ssdata_without_nan))]
+    ssdata_max = np.percentile(ssdata_without_nan, 99)
+    ssdata_min = ssdata_without_nan.min()
+    print('min = ' + str(ssdata_min) + ' max = ' + str(ssdata_max))
+    ax2 = fig.add_subplot(312)
+    x, y = np.meshgrid(
+        np.linspace(time_start, time_end, ssdata.shape[1]),
+        np.linspace(0, win_size_t, ssdata.shape[0]))
+    ax2.set_title("Shiftgramm")
+    ax2.set_ylabel("Window time[Seconds]")
+    ax2.set_xlabel("Time [Seconds]")
+    ax2.pcolormesh(x, y, ssdata, vmin=ssdata_min, vmax=ssdata_max, cmap='jet')
+    ax2.axis('tight')
 
     ax3 = fig.add_subplot(313)
     x, y = np.meshgrid(
